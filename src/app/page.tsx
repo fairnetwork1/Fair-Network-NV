@@ -31,7 +31,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, useUser } from '@/firebase';
+import { useFirebase } from '@/firebase';
 import { GoogleIcon, Logo } from '@/components/icons';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -117,7 +117,6 @@ export default function AuthPage() {
   const referrerId = searchParams.get('ref');
 
   const { auth, firestore } = useFirebase();
-  const { isUserLoading } = useUser();
   const { toast } = useToast();
 
   const registerForm = useForm<z.infer<typeof registerSchema>>({
@@ -365,10 +364,6 @@ export default function AuthPage() {
     </div>
 );
 
-  if (isUserLoading) {
-      return null;
-  }
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
       <Card className="w-full max-w-md shadow-lg">
@@ -555,4 +550,3 @@ export default function AuthPage() {
     </div>
   );
 }
-
