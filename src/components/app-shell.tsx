@@ -14,13 +14,14 @@ import {
   Repeat,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useUser, useFirebase } from '@/firebase';
-import { useEffect, useState } from 'react';
+import { useUser, useFirebase, useDoc, useMemoFirebase } from '@/firebase';
+import { useEffect, useState, ReactNode } from 'react';
 import { Header } from './header';
 import { Button } from './ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { signOut } from 'firebase/auth';
+import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { Logo } from './icons';
+import { doc } from 'firebase/firestore';
 
 type NavItem = {
   href: string;
@@ -47,23 +48,44 @@ const pageTitles: { [key: string]: string } = {
   '/admin': 'Admin Dashboard',
 };
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+const LoadingScreen = () => (
+    <div className="flex h-screen w-screen items-center justify-center bg-gray-100">
+        <div>
+            <Logo className="h-16 w-16 mx-auto mb-4 animate-pulse" />
+            <h1 className="text-2xl font-semibold text-gray-800">Welcome to Fair Chain</h1>
+        </div>
+    </div>
+);
+
+export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { user } = useUser();
-  const [isAdmin, setIsAdmin] = useState(false);
   const router = useRouter();
-  const { auth } = useFirebase();
+  const { auth, firestore } = useFirebase();
   const { toast } = useToast();
 
+  const [user, setUser] = useState(null);
+  const [isUserLoading, setIsUserLoading] = useState(true);
+
   useEffect(() => {
-    // Set admin status based on user email
-    if (user) {
-      setIsAdmin(user.email === 'shavezahmad035@gmail.com');
-    } else {
-      setIsAdmin(false);
-    }
-  }, [user]);
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser && firebaseUser.emailVerified) {
+        setUser(firebaseUser);
+      } else {
+        setUser(null);
+        if (pathname !== '/') {
+            router.replace('/');
+        }
+      }
+      setIsUserLoading(false);
+    });
+    return () => unsubscribe();
+  }, [auth, router, pathname]);
+
+  const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
+  const { data: userData } = useDoc(userDocRef);
   
+  const isAdmin = userData?.role === 'admin';
+
   const handleLogout = () => {
     signOut(auth).then(() => {
         toast({ title: "Logged Out Successfully" });
@@ -72,6 +94,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         toast({ variant: 'destructive', title: "Logout Failed", description: error.message });
     });
   };
+
+  if (isUserLoading) {
+    return <LoadingScreen />;
+  }
 
   const allNavItems = isAdmin ? [...navItems, adminNavItem] : navItems;
   const currentPageTitle = pageTitles[pathname] ?? '';
@@ -106,22 +132,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </Link>
               );
             })}
-          </nav>
-           {isAdmin && (
-              <div className="grid items-start px-4 text-sm font-medium">
-                 <Link
+             {isAdmin && (
+                  <Link
                     key={adminNavItem.href}
                     href={adminNavItem.href}
                     className={cn(
                       'flex items-center gap-2.5 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-blue-600',
-                       pathname === adminNavItem.href && 'bg-gray-100 text-blue-600 font-semibold'
+                       pathname.startsWith(adminNavItem.href) && 'bg-gray-100 text-blue-600 font-semibold'
                     )}
                   >
                     <adminNavItem.icon className="h-4 w-4" />
                     <span className="truncate">{adminNavItem.label}</span>
                   </Link>
-              </div>
            )}
+          </nav>
+          
             <div className="mt-auto p-4">
                  <Button variant="outline" className="w-full" onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" /> Logout
@@ -158,3 +183,4 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+    
