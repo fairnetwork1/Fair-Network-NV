@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -14,9 +14,12 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
   getAdditionalUserInfo,
+  onAuthStateChanged,
+  User,
 } from 'firebase/auth';
 import { doc, serverTimestamp, setDoc, runTransaction, increment, collection, where, query, getDocs } from 'firebase/firestore';
 import { Eye, EyeOff } from 'lucide-react';
+import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -34,6 +37,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirebase } from '@/firebase';
 import { GoogleIcon, Logo } from '@/components/icons';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useEffect } from 'react';
 
 const passwordSchema = z
   .string()
@@ -106,18 +110,47 @@ const EmailOnlyForm = ({ title, description, buttonText, onSubmit, onBack }: { t
     );
 };
 
+const LoadingScreen = () => {
+    const [isMounted, setIsMounted] = useState(false);
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    return (
+        <div className="flex h-screen items-center justify-center bg-gray-100">
+            <div>
+                <Image src="/logo512.png" alt="Fair Chain Logo" width={64} height={64} className={`mx-auto mb-4 ${isMounted ? 'animate-pulse' : ''}`} />
+                <h1 className="text-2xl font-semibold text-gray-800">Welcome to Fair Chain</h1>
+            </div>
+        </div>
+    );
+};
+
 
 export default function AuthPage() {
   const [activeTab, setActiveTab] = useState('login');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [isUserLoading, setIsUserLoading] = useState(true);
   
   const searchParams = useSearchParams();
+  const router = useRouter();
   const referrerId = searchParams.get('ref');
 
   const { auth, firestore } = useFirebase();
   const { toast } = useToast();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+        if (user && user.emailVerified) {
+            router.replace('/home');
+        } else {
+            setIsUserLoading(false);
+        }
+    });
+    return () => unsubscribe();
+  }, [auth, router]);
 
   const registerForm = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
@@ -239,6 +272,8 @@ export default function AuthPage() {
           description: 'A new verification link has been sent. Please check your inbox and spam folder.',
           duration: 8000
         });
+      } else {
+        // Successful login is handled by onAuthStateChanged
       }
 
     } catch (error: any) {
@@ -309,7 +344,7 @@ export default function AuthPage() {
             }
             toast({ title: 'Account Created!', description: 'Welcome to Fair Chain.' });
         } else {
-            toast({ title: 'Login Successful', description: 'Welcome back!' });
+            // Existing user login is handled by onAuthStateChanged
         }
     } catch (error: any) {
         let description = 'An unknown error occurred. Please try again.';
@@ -337,6 +372,11 @@ export default function AuthPage() {
         toast({ variant: 'destructive', title: 'Error', description: error.message });
     }
   };
+
+  if (isUserLoading) {
+    return <LoadingScreen />;
+  }
+
 
   const renderHeader = () => {
     if (isForgotPassword) {
