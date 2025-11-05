@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Logo } from '@/components/icons';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import Image from 'next/image';
 
 const NOTIFICATION_ICONS: { [key: string]: React.ElementType } = {
   send: ArrowUp,
@@ -165,7 +166,7 @@ export default function WalletPage() {
                     <div className="p-4 space-y-1">
                         <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50">
                             <div className="flex items-center gap-3">
-                                <Logo className="h-10 w-10" />
+                                <Image src="/logo512.png" alt="Fair Chain Logo" width={40} height={40} />
                                 <div>
                                     <p className="font-bold text-black">Fair</p>
                                     <p className="text-sm text-gray-500">Fair Chain</p>
